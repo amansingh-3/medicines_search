@@ -27,7 +27,7 @@
 
 .med-details {
   display: flex;
-  flex-wrap: wrap;
+
   flex-direction: column;
   flex: 1;
   justify-content: flex-start;
@@ -60,7 +60,6 @@ label {
 
 .selection {
   display: flex;
-  flex-wrap: wrap; /* Allow items to wrap to the next line */
   justify-content: flex-start; /* Distribute items evenly along the main axis */
   align-items: flex-start;
   align-content: center;
