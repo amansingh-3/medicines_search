@@ -10,7 +10,11 @@ const Card = ({ searchQuery }) => {
   const [lowestSellingPrice, setLowestSellingPrice] = useState({});
   const [showAllForms, setShowAllForms] = useState(false);
   const [showAllStrengths, setShowAllStrengths] = useState(false);
-  const [ShowAllPackaging, setShowAllPShowAllPackaging] = useState(false);
+  const [ShowAllPackaging, setShowAllPackaging] = useState(false);
+  const [foundStoresState, setFoundStoresState] = useState({});
+  const [initialLowestSellingPrice, setInitialLowestSellingPrice] = useState(
+    {}
+  );
   useEffect(() => {
     if (!searchQuery) return; // No need to fetch if there's no search query
 
@@ -31,14 +35,27 @@ const Card = ({ searchQuery }) => {
         const defaultSelectedForm = {};
         const defaultSelectedStrength = {};
         const defaultSelectedPackaging = {};
+        // const defaultLowestSellingPrice = {};
+        const initialLowestPrices = {};
+
         data.data.saltSuggestions.forEach((medicine, index) => {
           defaultSelectedForm[index] = medicine.most_common.Form;
           defaultSelectedStrength[index] = medicine.most_common.Strength;
           defaultSelectedPackaging[index] = medicine.most_common.Packing;
+          initialLowestPrices[index] = calculateLowestSellingPrice(
+            medicine,
+            defaultSelectedForm[index],
+            defaultSelectedStrength[index],
+            defaultSelectedPackaging[index],
+            setFoundStoresState
+          );
         });
+
         setSelectedForm(defaultSelectedForm);
         setSelectedStrength(defaultSelectedStrength);
         setSelectedPackaging(defaultSelectedPackaging);
+        // setLowestSellingPrice(defaultLowestSellingPrice);
+        setInitialLowestSellingPrice(initialLowestPrices);
       })
       .catch((error) => {
         console.error("Error fetching data:", error);
@@ -46,12 +63,38 @@ const Card = ({ searchQuery }) => {
       });
   }, [searchQuery]); // Fetch data whenever searchQuery changes
 
-  const handleFormChange = (index, form) => {
+  const handleFormChange = (index, form, medicine) => {
     setSelectedForm({ ...selectedForm, [index]: form });
+
+    // Set the default strength for the selected form
+    const defaultStrength = Object.keys(medicine.salt_forms_json[form])[0]; // Assuming the default strength is the first one in the list
+    setSelectedStrength({ ...selectedStrength, [index]: defaultStrength });
   };
 
   const handleStrengthChange = (index, strength) => {
     setSelectedStrength({ ...selectedStrength, [index]: strength });
+  };
+  const handlePackagingChange = (
+    medicine,
+    index,
+    packaging,
+    selectedForm,
+    selectedStrength
+  ) => {
+    setSelectedPackaging({ ...selectedPackaging, [index]: packaging }); // Update selectedPackaging state
+
+    const newLowestPrice = calculateLowestSellingPrice(
+      medicine,
+      selectedForm,
+      selectedStrength,
+      packaging,
+      setFoundStoresState
+    );
+
+    setInitialLowestSellingPrice((prevState) => ({
+      ...prevState,
+      [index]: newLowestPrice,
+    }));
   };
 
   const toggleShowAllForms = () => {
@@ -62,79 +105,64 @@ const Card = ({ searchQuery }) => {
     setShowAllStrengths(!showAllStrengths);
   };
   const toggleShowAllPackaging = () => {
-    setShowAllPShowAllPackaging(!ShowAllPackaging);
+    setShowAllPackaging(!ShowAllPackaging);
   };
 
-  const handlePackagingChange = (medicine, index, packaging) => {
-    setSelectedPackaging({ ...selectedPackaging, [index]: packaging });
-
+  const calculateLowestSellingPrice = (
+    medicine,
+    selectedForm,
+    selectedStrength,
+    selectedPackaging,
+    setFoundStoresState // Assuming this is a state-setting function
+  ) => {
+    console.log("Inside calculate function ");
     const strengthData =
-      medicine.salt_forms_json[selectedForm[index]][selectedStrength[index]];
+      medicine.salt_forms_json[selectedForm][selectedStrength];
+    const pricesData = strengthData[selectedPackaging];
 
-    const pricesData = strengthData[packaging];
+    console.log(pricesData, "Prices", strengthData, "Strenght");
+    let foundStores = {}; // Initialize foundStores object
 
-    // Check if pricesData is not null or undefined
     if (pricesData) {
       const productIds = Object.keys(pricesData);
 
       let allPrices = [];
 
       productIds.forEach((productId) => {
-        // Check if productId is not null and its value is not null
         if (productId && pricesData[productId]) {
           const prices = pricesData[productId];
 
-          allPrices = [
-            ...allPrices,
-            ...prices.map((item) => item.selling_price),
-          ];
+          if (prices.length > 0) {
+            // If prices are available, set foundStores to true and calculate the lowest price
+            foundStores[productId] = true;
+            allPrices.push(...prices.map((item) => item.selling_price));
+          } else {
+            // If pricesData is empty, set foundStores to false
+            foundStores[productId] = false;
+          }
         }
       });
 
       if (allPrices.length > 0) {
-        // Calculate the lowest selling price
-        const lowestSellingPrice = Math.min(...allPrices);
-
-        // Update the lowest selling price state for the selected medicine
-        setLowestSellingPrice({
-          ...lowestSellingPrice,
-          [index]: lowestSellingPrice,
-        });
+        // If prices are available for any product, set foundStoresState to true and return the lowest price
+        setFoundStoresState({ ...foundStores }); // Update the state with foundStores
+        return Math.min(...allPrices);
       } else {
-        // If no prices are available
-        setLowestSellingPrice({
-          ...lowestSellingPrice,
-          [index]: "Not available",
-        });
+        // If prices are not available for any product, set foundStoresState to false and return null
+        setFoundStoresState({ ...foundStores }); // Update the state with foundStores
+        return null;
       }
-    } else {
-      // If pricesData is null or undefined, set lowest selling price to null or any default value
-      setLowestSellingPrice({
-        ...lowestSellingPrice,
-        [index]: "Not available",
-      });
     }
+
+    // If pricesData is null or undefined, set foundStoresState to false and return null
+    setFoundStoresState(false);
+    return null;
   };
 
-  // useEffect(() => {
-  //   // Check if there's a default selected packaging
-  //   // const defaultSelectedPackaging = selectedPackaging[0];
-
-  //   // If there's a default selected packaging, calculate lowest selling price
-  //   if (selectedPackaging) {
-  //     // Get the default selected medicine
-  //     // const defaultMedicine = medicines[0];
-
-  //     // Calculate and set the lowest selling price for the default selected packaging
-  //     handlePackagingChange(0, 0, selectedPackaging);
-  //   }
-  // }, []); // Empty dependency array to run the effect only once on mount
-
-  console.log(medicines, "Medicines");
   if (error) {
     return <div>Error: {error}</div>;
   }
-
+  console.log(medicines, "medicies");
   return (
     <>
       <div className="card-wrapper">
@@ -180,7 +208,9 @@ const Card = ({ searchQuery }) => {
                               name={`form_${index}`}
                               value={option}
                               checked={selectedForm[index] === option}
-                              onChange={() => handleFormChange(index, option)}
+                              onChange={() =>
+                                handleFormChange(index, option, medicine)
+                              }
                             />
                             {option}
                           </label>
@@ -309,10 +339,11 @@ const Card = ({ searchQuery }) => {
                                   handlePackagingChange(
                                     medicine,
                                     index,
-                                    packaging
+                                    packaging,
+                                    selectedForm[index],
+                                    selectedStrength[index]
                                   )
                                 }
-                                // disabled={!available}
                               />
                               {packaging}
                             </label>
@@ -339,9 +370,23 @@ const Card = ({ searchQuery }) => {
                   </p>
                 </div>
                 <div className="med-price">
-                  <span>
-                    <h2>From ₹{lowestSellingPrice[index]}</h2>
-                  </span>
+                  <div>
+                    {initialLowestSellingPrice[index] !== undefined ? (
+                      initialLowestSellingPrice[index] !== null ? (
+                        <span>
+                          <h2>From ₹{initialLowestSellingPrice[index]}</h2>
+                        </span>
+                      ) : (
+                        <div className="notfound">
+                          <p>No stores selling this product near you</p>
+                        </div>
+                      )
+                    ) : (
+                      <div className="loading">
+                        <p>Loading...</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
