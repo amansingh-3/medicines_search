@@ -16,7 +16,7 @@ const Search = ({ onSearch }) => {
     <>
       <div className="container">
         <div className="heading">
-          <h1>Cappsule Web Development Test</h1>
+          <h1>Find your Medicine in Lowest Price</h1>
           <div className="search-bar">
             <div className="search-icon">
               <svg
